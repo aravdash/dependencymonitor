@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: github-activity-scanner
+  main:
+    web-application-type: none
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    client-id: ${spring.application.name}-${INSTANCE_ID:local}
+
+scanner:
+  github:
+    api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
+    token: ${GITHUB_TOKEN:}
+    poll-interval-ms: ${GITHUB_POLL_INTERVAL_MS:60000}
+    initial-delay-ms: ${GITHUB_INITIAL_DELAY_MS:10000}
+    inactive-months: ${GITHUB_INACTIVE_MONTHS:12}
+    recent-window-days: ${GITHUB_RECENT_WINDOW_DAYS:7}
+    baseline-window-days: ${GITHUB_BASELINE_WINDOW_DAYS:28}
+    spike-minimum-commits: ${GITHUB_SPIKE_MINIMUM_COMMITS:10}
+    spike-multiplier: ${GITHUB_SPIKE_MULTIPLIER:3.0}
+    # Bounds API cost. A truncated baseline is reported as incomplete, never as a spike.
+    max-commit-pages: ${GITHUB_MAX_COMMIT_PAGES:3}
+    failure-backoff-ms: ${GITHUB_FAILURE_BACKOFF_MS:60000}
+    max-failure-backoff-ms: ${GITHUB_MAX_FAILURE_BACKOFF_MS:3600000}
+
+watchlist:
+  packages:
+    - name: lodash
+      ecosystem: npm
+      repository: lodash/lodash
+    - name: express
+      ecosystem: npm
+      repository: expressjs/express
+    - name: chalk
+      ecosystem: npm
+      repository: chalk/chalk
+    - name: requests
+      ecosystem: pypi
+      repository: psf/requests
+    - name: flask
+      ecosystem: pypi
+      repository: pallets/flask
+    - name: numpy
+      ecosystem: pypi
+      repository: numpy/numpy
+    - name: org.springframework.boot:spring-boot-starter-web
+      ecosystem: maven
+      repository: spring-projects/spring-boot
+    - name: com.fasterxml.jackson.core:jackson-databind
+      ecosystem: maven
+      repository: FasterXML/jackson-databind

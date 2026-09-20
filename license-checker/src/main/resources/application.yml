@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: license-checker
+  main:
+    web-application-type: none
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+scanner:
+  initial-delay: ${LICENSE_INITIAL_DELAY:10s}
+  poll-interval: ${LICENSE_POLL_INTERVAL:60s}
+  license:
+    # A trailing * matches a license family. OR alternatives and exceptions trigger review too.
+    disallowed: ${LICENSE_DISALLOWED:GPL-*,LGPL-*,AGPL-*}
+    npm-registry: ${NPM_REGISTRY_URL:https://registry.npmjs.org}
+    pypi-registry: ${PYPI_REGISTRY_URL:https://pypi.org/pypi}
+    maven-repository: ${MAVEN_REPOSITORY_URL:https://repo.maven.apache.org/maven2}
+    max-parent-depth: ${LICENSE_MAX_PARENT_DEPTH:10}
+# npm and PyPI use latest metadata unless an explicit version is added.
+# Maven requires a pinned version and inherits licenses from published parent POMs.
+watchlist:
+  packages:
+    - { name: lodash, ecosystem: npm }
+    - { name: express, ecosystem: npm }
+    - { name: chalk, ecosystem: npm }
+    - { name: requests, ecosystem: pypi }
+    - { name: flask, ecosystem: pypi }
+    - { name: numpy, ecosystem: pypi }
+    - { name: "org.springframework.boot:spring-boot-starter-web", ecosystem: maven, version: "3.5.0" }
+    - { name: "com.fasterxml.jackson.core:jackson-databind", ecosystem: maven, version: "2.18.2" }

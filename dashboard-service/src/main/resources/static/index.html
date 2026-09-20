@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dependency Health</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div><span class="eyebrow">ENGINEERING / DEPENDENCIES</span><h1>Dependency health</h1>
+        <p>Activity, vulnerabilities, and licenses from independent scanners.</p></div>
+      <div class="connection"><span class="dot"></span><span id="refresh-status" role="status">Connecting…</span></div>
+    </header>
+    <section class="toolbar" aria-label="Filters">
+      <label for="ecosystem">Ecosystem</label>
+      <select id="ecosystem"><option value="">All ecosystems</option><option value="npm">npm</option>
+        <option value="pypi">PyPI</option><option value="maven">Maven</option></select>
+      <button id="refresh" type="button">Refresh</button>
+      <span id="package-count" class="muted"></span>
+    </section>
+    <p id="error" class="error" role="alert" hidden></p>
+    <section aria-labelledby="packages-title">
+      <div class="section-heading"><h2 id="packages-title">Latest observations</h2><span class="muted">Updated every 10 seconds</span></div>
+      <p class="muted hint">Latest event from each scanner. Findings are observations at a point in time; history remains available.</p>
+      <div id="packages" class="packages"><p class="empty">Waiting for the first scanner events…</p></div>
+      <div class="pagination"><button id="previous" type="button" disabled>Previous</button><span id="page-status"></span><button id="next" type="button" disabled>Next</button></div>
+    </section>
+    <section aria-labelledby="recent-title">
+      <div class="section-heading"><h2 id="recent-title">Recent events</h2><span class="muted">Latest 30</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Time</th><th>Package</th><th>Scanner</th><th>Severity</th><th>Finding</th></tr></thead><tbody id="recent"></tbody></table></div>
+    </section>
+    <footer>Every event is stored with its original timestamp. Select a package to explore its history.</footer>
+  </main>
+  <dialog id="history-dialog">
+    <div class="dialog-heading"><h2 id="history-title">Package history</h2><button id="close-history" type="button" aria-label="Close history">Close</button></div>
+    <p id="history-count" class="muted"></p>
+    <div id="history"></div>
+    <button id="more-history" type="button" hidden>Load more</button>
+  </dialog>
+</body>
+</html>

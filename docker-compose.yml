@@ -1,0 +1,121 @@
+name: dependency-health
+
+x-service: &service
+  profiles: [apps]
+  restart: unless-stopped
+  depends_on:
+    kafka:
+      condition: service_healthy
+
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dependency_health}
+      POSTGRES_USER: ${POSTGRES_USER:-health}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-health}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  github-activity-scanner:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: github-activity-scanner
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+  osv-cve-scanner:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: osv-cve-scanner
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+
+  license-checker:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: license-checker
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+
+  dashboard-service:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: dashboard-service
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-dependency_health}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-health}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-health}
+
+  alerter-service:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: alerter-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_SEVERITY_THRESHOLD: ${ALERT_SEVERITY_THRESHOLD:-critical}
+
+volumes:
+  kafka-data:
+  postgres-data:

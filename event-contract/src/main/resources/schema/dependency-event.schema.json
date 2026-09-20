@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:dependency-health:dependency-event:v1",
+  "title": "Dependency event v1",
+  "type": "object",
+  "required": ["eventId", "source", "packageName", "ecosystem", "severity", "summary", "detail", "timestamp"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "source": {"type": "string", "enum": ["github-activity", "osv-cve", "license-check"]},
+    "packageName": {"type": "string", "minLength": 1},
+    "ecosystem": {"type": "string", "minLength": 1, "examples": ["npm", "pypi", "maven"]},
+    "severity": {"type": "string", "enum": ["info", "warning", "critical"]},
+    "summary": {"type": "string", "minLength": 1},
+    "detail": {"type": "object"},
+    "timestamp": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": true
+}
