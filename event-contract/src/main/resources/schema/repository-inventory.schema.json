@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dependency-health.local/schema/repository-inventory.schema.json",
+  "title": "Repository dependency inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "repositoryId", "repositoryUrl", "status", "dependencies", "unsupportedCount", "message", "timestamp"],
+  "properties": {
+    "requestId": { "type": "string", "format": "uuid" },
+    "repositoryId": { "type": "string", "pattern": "^github:[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$" },
+    "repositoryUrl": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/" },
+    "status": { "enum": ["complete", "partial", "failed"] },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["packageName", "ecosystem", "version", "packageUrl", "direct", "declaredLicense"],
+        "properties": {
+          "packageName": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "ecosystem": { "enum": ["npm", "pypi", "maven"] },
+          "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "packageUrl": { "type": "string", "pattern": "^pkg:" },
+          "direct": { "type": "boolean" },
+          "declaredLicense": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    },
+    "unsupportedCount": { "type": "integer", "minimum": 0 },
+    "message": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

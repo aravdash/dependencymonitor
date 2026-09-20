@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: repository-ingestor
+  main:
+    web-application-type: none
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:repository-ingestor}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 1
+      properties:
+        max.poll.interval.ms: 600000
+    listener:
+      ack-mode: record
+
+ingestor:
+  github:
+    api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
+    api-version: ${GITHUB_API_VERSION:2026-03-10}
+    token: ${GITHUB_TOKEN:}
+    request-timeout: ${GITHUB_REQUEST_TIMEOUT:20s}
+    report-poll-interval: ${GITHUB_SBOM_POLL_INTERVAL:2s}
+    report-max-polls: ${GITHUB_SBOM_MAX_POLLS:30}
+    max-response-bytes: ${GITHUB_SBOM_MAX_BYTES:25000000}
+    max-dependencies: ${GITHUB_SBOM_MAX_DEPENDENCIES:20000}

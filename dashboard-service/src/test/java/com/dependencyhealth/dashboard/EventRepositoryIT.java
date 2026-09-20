@@ -49,12 +49,12 @@ class EventRepositoryIT {
 
     @BeforeEach
     void clearEvents() {
-        jdbc.getJdbcTemplate().execute("TRUNCATE TABLE dependency_event");
+        jdbc.getJdbcTemplate().execute("TRUNCATE TABLE repository_dependency, repository_scan, dependency_event");
     }
 
     @Test
     void flywayCreatesPostgresJsonbAndTimeZoneAwareSchema() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         Map<String, String> types = jdbc.getJdbcTemplate().query("""
                 SELECT column_name, data_type FROM information_schema.columns

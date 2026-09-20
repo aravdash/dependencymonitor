@@ -68,6 +68,16 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
 
+  repository-ingestor:
+    <<: *service
+    build:
+      context: .
+      args:
+        SERVICE: repository-ingestor
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
   osv-cve-scanner:
     <<: *service
     build:

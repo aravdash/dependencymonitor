@@ -2,6 +2,7 @@ package com.dependencyhealth.contract.kafka;
 
 import com.dependencyhealth.contract.DependencyEventCodec;
 import com.dependencyhealth.contract.EventTopics;
+import com.dependencyhealth.contract.repository.RepositoryMessageCodec;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.ObjectProvider;
@@ -21,6 +22,9 @@ import org.springframework.kafka.core.ProducerFactory;
 @EnableConfigurationProperties(KafkaProperties.class)
 public class KafkaInfrastructureConfiguration {
     @Bean public DependencyEventCodec dependencyEventCodec() { return new DependencyEventCodec(); }
+    @Bean public RepositoryMessageCodec repositoryMessageCodec(com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        return new RepositoryMessageCodec(mapper);
+    }
 
     @Bean public ProducerFactory<String, String> producerFactory(KafkaProperties properties, ObjectProvider<SslBundles> sslBundles) {
         var config = properties.buildProducerProperties(sslBundles.getIfAvailable());
@@ -42,6 +46,10 @@ public class KafkaInfrastructureConfiguration {
                                                        @Value("${health.kafka.replicas:1}") int replicas) {
         return new KafkaAdmin.NewTopics(
                 TopicBuilder.name(EventTopics.DEPENDENCY_EVENTS).partitions(partitions).replicas(replicas).build(),
-                TopicBuilder.name(EventTopics.DEAD_LETTER).partitions(partitions).replicas(replicas).build());
+                TopicBuilder.name(EventTopics.DEAD_LETTER).partitions(partitions).replicas(replicas).build(),
+                TopicBuilder.name(EventTopics.REPOSITORY_SCAN_REQUESTS).partitions(partitions).replicas(replicas).build(),
+                TopicBuilder.name(EventTopics.REPOSITORY_SCAN_REQUESTS + ".DLT").partitions(partitions).replicas(replicas).build(),
+                TopicBuilder.name(EventTopics.REPOSITORY_INVENTORY).partitions(partitions).replicas(replicas).build(),
+                TopicBuilder.name(EventTopics.REPOSITORY_INVENTORY + ".DLT").partitions(partitions).replicas(replicas).build());
     }
 }

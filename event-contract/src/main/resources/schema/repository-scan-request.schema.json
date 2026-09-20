@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dependency-health.local/schema/repository-scan-request.schema.json",
+  "title": "Repository scan request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "provider", "owner", "repository", "repositoryUrl", "requestedAt"],
+  "properties": {
+    "requestId": { "type": "string", "format": "uuid" },
+    "provider": { "const": "github" },
+    "owner": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,100}$" },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,100}$" },
+    "repositoryUrl": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/" },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  }
+}

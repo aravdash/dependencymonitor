@@ -1,6 +1,5 @@
 package com.dependencyhealth.contract.kafka;
 
-import com.dependencyhealth.contract.EventTopics;
 import com.dependencyhealth.contract.InvalidEventException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -39,7 +38,7 @@ public class ConsumerKafkaConfiguration {
 
     @Bean public DefaultErrorHandler dependencyErrorHandler(KafkaTemplate<String, String> template) {
         var recoverer = new DeadLetterPublishingRecoverer(template,
-                (record, ex) -> new TopicPartition(EventTopics.DEAD_LETTER, record.partition()));
+                (record, ex) -> new TopicPartition(record.topic() + ".DLT", record.partition()));
         // Never commit a failed source record if publishing it to the DLT also fails.
         recoverer.setFailIfSendResultIsError(true);
         var backoff = new ExponentialBackOffWithMaxRetries(3);

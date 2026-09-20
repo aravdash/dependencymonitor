@@ -14,6 +14,28 @@
         <p>Activity, vulnerabilities, and licenses from independent scanners.</p></div>
       <div class="connection"><span class="dot"></span><span id="refresh-status" role="status">Connecting…</span></div>
     </header>
+    <section class="repository-onboarding" aria-labelledby="repository-title">
+      <div class="section-heading"><div><span class="eyebrow">START HERE</span><h2 id="repository-title">Analyze a GitHub repository</h2></div></div>
+      <p class="muted">Paste a public repository URL. We use its GitHub dependency graph to discover npm, PyPI, and Maven packages without executing repository code.</p>
+      <form id="repository-form" class="repository-form">
+        <label for="repository-url">GitHub repository</label>
+        <div class="repository-input-row">
+          <input id="repository-url" name="repositoryUrl" type="url" required placeholder="https://github.com/owner/repository" autocomplete="url" spellcheck="false">
+          <button id="repository-submit" type="submit">Analyze repository</button>
+        </div>
+      </form>
+      <p id="repository-error" class="error" role="alert" hidden></p>
+      <div id="repository-progress" class="repository-progress" hidden>
+        <div><span id="repository-status" class="status-pill">QUEUED</span><strong id="repository-name"></strong></div>
+        <p id="repository-message" class="muted">Waiting for discovery…</p>
+      </div>
+      <div id="repository-result" hidden>
+        <div class="section-heading"><h3>Discovered dependencies</h3><span id="dependency-count" class="muted"></span></div>
+        <div class="table-wrap"><table><thead><tr><th>Package</th><th>Ecosystem</th><th>Version</th><th>Relationship</th><th>Declared license</th></tr></thead><tbody id="repository-dependencies"></tbody></table></div>
+        <div class="pagination"><button id="dependency-previous" type="button" disabled>Previous</button><span id="dependency-page-status"></span><button id="dependency-next" type="button" disabled>Next</button></div>
+      </div>
+      <div class="recent-repositories"><h3>Recent repository scans</h3><div id="recent-repositories" class="repository-list"><span class="muted">No repository scans yet.</span></div></div>
+    </section>
     <section class="toolbar" aria-label="Filters">
       <label for="ecosystem">Ecosystem</label>
       <select id="ecosystem"><option value="">All ecosystems</option><option value="npm">npm</option>

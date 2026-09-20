@@ -1,12 +1,18 @@
 # Dependency Health Monitor
 
-Five independently runnable Spring Boot applications exchange plain JSON findings through Kafka. Scanners never call consumers. The dashboard and alerter use separate consumer groups, so either can stop, restart, scale, or replay without consuming the other's share of events.
+Six independently runnable Spring Boot applications exchange plain JSON messages through Kafka. Scanners never call consumers. The dashboard and alerter use separate consumer groups, so either can stop, restart, scale, or replay without consuming the other's share of events.
 
 ```mermaid
 flowchart LR
   GitHub[GitHub REST API] --> G[github-activity-scanner]
   OSV[OSV API] --> O[osv-cve-scanner]
   Registries[npm / PyPI / Maven Central] --> L[license-checker]
+  User[Repository URL] --> UI[Dashboard]
+  UI --> RQ[Kafka: repository-scan-requests]
+  RQ --> R[repository-ingestor]
+  R --> GitHub
+  R --> INV[Kafka: repository-inventory]
+  INV --> D
   G --> K[Kafka: dependency-events]
   O --> K
   L --> K
@@ -39,6 +45,7 @@ Run each command in **its own terminal**, from the project root:
 ```sh
 java -jar dashboard-service/target/dashboard-service-1.0.0-SNAPSHOT.jar
 java -jar alerter-service/target/alerter-service-1.0.0-SNAPSHOT.jar
+java -jar repository-ingestor/target/repository-ingestor-1.0.0-SNAPSHOT.jar
 java -jar github-activity-scanner/target/github-activity-scanner-1.0.0-SNAPSHOT.jar
 java -jar osv-cve-scanner/target/osv-cve-scanner-1.0.0-SNAPSHOT.jar
 java -jar license-checker/target/license-checker-1.0.0-SNAPSHOT.jar
@@ -46,7 +53,9 @@ java -jar license-checker/target/license-checker-1.0.0-SNAPSHOT.jar
 
 Open **http://localhost:8080**. First polls start after 10 seconds and repeat 60 seconds after the previous poll finishes. Findings normally appear within the first couple of minutes after startup, subject to API availability and rate limits. With no webhook, critical findings appear in the alerter's console. Clean scans also publish informational observations, so healthy packages appear on the dashboard.
 
-Alternatively, build and start **all five applications in separate containers** with no local Java installation:
+The top of the dashboard now provides the quickest path through the product: paste a public GitHub URL such as `https://github.com/Google/guava`, select **Analyze repository**, and leave the page open. The request is queued through Kafka, GitHub prepares an SPDX dependency report asynchronously, and the page updates every two seconds until the dependency list is ready. The worker reads metadata only; it never clones the repository or executes its code.
+
+Alternatively, build and start **all six applications in separate containers** with no local Java installation:
 
 ```sh
 docker compose --profile apps up -d --build --wait
@@ -66,6 +75,7 @@ docker compose --profile apps down
 | Module | Responsibility | HTTP port |
 | --- | --- | --- |
 | `event-contract` | JSON schema, validated event model, Kafka transport and public-API HTTP utilities | None; library only |
+| `repository-ingestor` | Discovers npm, PyPI, and Maven dependencies from a public GitHub SPDX SBOM | None; event-driven worker |
 | `github-activity-scanner` | Repository inactivity and commit-spike observations | None; scheduled worker |
 | `osv-cve-scanner` | Version-specific vulnerabilities from OSV | None; scheduled worker |
 | `license-checker` | Registry license metadata and configured policy | None; scheduled worker |
@@ -92,6 +102,8 @@ All settings below are optional for local development. Export environment variab
 | --- | --- | --- |
 | All | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` on host; Compose sets `kafka:19092` |
 | GitHub | `GITHUB_TOKEN` | Empty; logs a warning and uses unauthenticated API requests |
+| Repository ingestion | `GITHUB_SBOM_POLL_INTERVAL`, `GITHUB_SBOM_MAX_POLLS` | `2s`, `30`; async report polling |
+| Repository ingestion | `GITHUB_SBOM_MAX_BYTES`, `GITHUB_SBOM_MAX_DEPENDENCIES` | `25000000`, `20000`; bounded input limits |
 | GitHub | `GITHUB_POLL_INTERVAL_MS`, `GITHUB_INITIAL_DELAY_MS` | `60000`, `10000` |
 | GitHub | `GITHUB_INACTIVE_MONTHS` | `12` calendar months |
 | GitHub | `GITHUB_RECENT_WINDOW_DAYS`, `GITHUB_BASELINE_WINDOW_DAYS` | `7`, `28` preceding days |
@@ -119,6 +131,14 @@ API base URL overrides are also available in each producer YAML: `GITHUB_API_BAS
 GitHub's unauthenticated allowance is small relative to an eight-repository, one-minute poll. The startup warning explains this; the scanner honors quota-reset/Retry-After headers and pauses requests. For sustained use, set `GITHUB_TOKEN` and increase the polling interval. Commit data may be truncated on active repositories; incomplete history is explicitly reported and cannot produce a false spike.
 
 ## Watchlists and interpretation
+
+### Repository dependency discovery
+
+Repository discovery supports public GitHub repositories and extracts versioned npm, PyPI, and Maven packages from GitHub's dependency graph. It marks dependencies as direct or transitive when that relationship is present in the SPDX report, keeps declared license metadata, and reports how many entries use unsupported ecosystems. A `GITHUB_TOKEN` is optional for public repositories and required when the repository is private or anonymous API limits are too small. The token must be able to read that repository's contents.
+
+Discovery is event driven. `dashboard-service` writes a queued request to PostgreSQL and publishes it to `repository-scan-requests`; `repository-ingestor` retrieves the asynchronous GitHub report and publishes a result to `repository-inventory`; `dashboard-service` consumes and stores that result. The existing scheduled watchlists continue to produce the health findings below the repository inventory. Automatically sending every discovered package to the vulnerability, license, and activity scanners is a separate next step, so the initial repository result is an inventory rather than a combined risk report.
+
+GitHub may return a partial inventory when a manifest ecosystem is not represented by npm, PyPI, or Maven, or a failed result when its dependency graph is unavailable. The dashboard retains recent attempts so users can reopen their results.
 
 Each producer independently declares **all eight packages** in its own `watchlist.packages` list:
 
@@ -152,6 +172,10 @@ The dashboard shows the latest **observed finding per source**, identified by `(
 ## REST API
 
 ```sh
+curl -X POST "http://localhost:8080/repositories" -H "Content-Type: application/json" -d '{"repositoryUrl":"https://github.com/Google/guava"}'
+curl "http://localhost:8080/repositories?limit=20&offset=0"
+curl "http://localhost:8080/repositories/{requestId}"
+curl "http://localhost:8080/repositories/{requestId}/dependencies?ecosystem=maven&limit=100&offset=0"
 curl "http://localhost:8080/packages?limit=50&offset=0"
 curl "http://localhost:8080/packages/lodash/events?ecosystem=npm&limit=20"
 curl "http://localhost:8080/packages/com.fasterxml.jackson.core:jackson-databind/events?ecosystem=maven"
@@ -165,7 +189,7 @@ The dashboard and alerter expose `/actuator/health`. The dashboard page polls th
 
 ## Kafka contract and delivery behavior
 
-The versioned machine-readable contract lives in [`event-contract/src/main/resources/schema/dependency-event.schema.json`](event-contract/src/main/resources/schema/dependency-event.schema.json); the Java record and JSON codec implement it. The topic name is defined in `EventTopics`. Any independent process that can publish this JSON can be another producer; no Java-specific serialization headers are required.
+The versioned machine-readable contracts live in [`event-contract/src/main/resources/schema`](event-contract/src/main/resources/schema); the Java records and JSON codecs implement them. Topic names are defined in `EventTopics`. Any independent process that can publish the documented JSON can participate; no Java-specific serialization headers are required.
 
 ```json
 {
@@ -181,7 +205,7 @@ The versioned machine-readable contract lives in [`event-contract/src/main/resou
 ```
 
 - Kafka key: `ecosystem:packageName`, preserving per-partition order for each package. Producers generate a fresh UUID for each observation; polling the same issue again is a new observation.
-- `dependency-events` and `dependency-events.DLT` are created by each application's KafkaAdmin as needed (three partitions, replication factor one for local dev). Configure `health.kafka.partitions` and `health.kafka.replicas` for a different cluster. Kafka automatic topic creation is disabled.
+- `dependency-events`, `repository-scan-requests`, `repository-inventory`, and each topic's `.DLT` are created by each application's KafkaAdmin as needed (three partitions, replication factor one for local dev). Configure `health.kafka.partitions` and `health.kafka.replicas` for a different cluster. Kafka automatic topic creation is disabled.
 - Producers enable idempotent Kafka sends with `acks=all`, bounded delivery timeouts, and confirmation of send completion. API/network failures are isolated to a package; retries use backoff and later scheduled polls. There is no durable producer outbox: a process crash before Kafka acknowledges can lose that particular observation; a later poll observes the package again.
 - Consumers disable auto-commit and acknowledge a record after processing. Transient failures receive three retries with exponential delay, then the original payload and failure/group headers go to the DLT. Invalid JSON/schema records go directly to the DLT. If DLT publication also fails, the source offset is not acknowledged as recovered.
 - Dashboard inserts use the UUID primary key with `ON CONFLICT DO NOTHING`. Kafka redelivery is safe, and older late arrivals do not replace newer observations. Each successfully processed event is stored once; failed records in the DLT require repair and replay to enter Postgres.
@@ -211,7 +235,7 @@ Use a fresh event UUID and current timestamp for each new observation. Sending t
 
 ## Tests and operational scope
 
-`mvn verify` runs producer classification/registry/scheduler tests, JSON contract validation, REST and consumer tests, and a real embedded Kafka test proving independent groups and poison-message recovery. It needs a JDK and dependencies but no Docker, PostgreSQL, external APIs, or real webhook. Kafka's test broker is temporary and isolated from Compose.
+`mvn verify` runs producer classification/registry/scheduler tests, JSON contract validation, repository URL and SPDX parsing tests, REST and consumer tests, and a real embedded Kafka test proving independent groups and poison-message recovery. The GitHub client test also verifies that credentials are not forwarded to GitHub's temporary report-download host. Tests need a JDK and dependencies but no Docker, PostgreSQL, external APIs, or real webhook. Kafka's test broker is temporary and isolated from Compose.
 
 The optional PostgreSQL integration suite uses a real disposable database container:
 
@@ -223,4 +247,4 @@ It exercises Flyway, JSONB persistence, UUID deduplication, timestamp ordering, 
 
 The local stack has one broker, local development credentials, and plaintext Kafka. Applications are independently deployable, but production operation also needs deployment-specific Kafka authentication/TLS and replication, API authentication for the dashboard, secret management, monitoring of consumer lag/DLTs, backup and retention policies, and an alert deduplication strategy appropriate to the destination.
 
-Implementation references: [Spring Boot 3.5.11 release](https://spring.io/blog/2026/02/19/spring-boot-3-5-11-available-now), [Kafka Docker documentation](https://kafka.apache.org/39/getting-started/docker/), [Spring Kafka error handling](https://docs.spring.io/spring-kafka/reference/kafka/annotation-error-handling.html), [GitHub commits API](https://docs.github.com/en/rest/commits/commits), [OSV query API](https://google.github.io/osv.dev/post-v1-query/), [OSV schema](https://ossf.github.io/osv-schema/), [PyPI JSON API](https://docs.pypi.org/api/json/), and [Maven POM licenses](https://maven.apache.org/pom.html#Licenses).
+Implementation references: [Spring Boot 3.5.11 release](https://spring.io/blog/2026/02/19/spring-boot-3-5-11-available-now), [Kafka Docker documentation](https://kafka.apache.org/39/getting-started/docker/), [Spring Kafka error handling](https://docs.spring.io/spring-kafka/reference/kafka/annotation-error-handling.html), [GitHub dependency SBOM API](https://docs.github.com/en/rest/dependency-graph/sboms), [GitHub commits API](https://docs.github.com/en/rest/commits/commits), [OSV query API](https://google.github.io/osv.dev/post-v1-query/), [OSV schema](https://ossf.github.io/osv-schema/), [PyPI JSON API](https://docs.pypi.org/api/json/), and [Maven POM licenses](https://maven.apache.org/pom.html#Licenses).
