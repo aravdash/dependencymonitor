@@ -134,11 +134,11 @@ GitHub's unauthenticated allowance is small relative to an eight-repository, one
 
 ### Repository dependency discovery
 
-Repository discovery supports public GitHub repositories and extracts versioned npm, PyPI, and Maven packages from GitHub's dependency graph. It marks dependencies as direct or transitive when that relationship is present in the SPDX report, keeps declared license metadata, and reports how many entries use unsupported ecosystems. A `GITHUB_TOKEN` is optional for public repositories and required when the repository is private or anonymous API limits are too small. The token must be able to read that repository's contents.
+Repository discovery supports public GitHub repositories and extracts npm, PyPI, and Maven packages. It first requests GitHub's SPDX dependency report. If the dependency graph is unavailable or the anonymous API quota is exhausted, it downloads a bounded public source archive and reads `package.json`, `package-lock.json`, `requirements*.txt`, and `pom.xml` files. Neither path executes repository code. A `GITHUB_TOKEN` is optional for public repositories and required for private-repository SBOM access or a larger API quota. The token must be able to read that repository's contents.
 
 Discovery is event driven. `dashboard-service` writes a queued request to PostgreSQL and publishes it to `repository-scan-requests`; `repository-ingestor` retrieves the asynchronous GitHub report and publishes a result to `repository-inventory`; `dashboard-service` consumes and stores that result. The existing scheduled watchlists continue to produce the health findings below the repository inventory. Automatically sending every discovered package to the vulnerability, license, and activity scanners is a separate next step, so the initial repository result is an inventory rather than a combined risk report.
 
-GitHub may return a partial inventory when a manifest ecosystem is not represented by npm, PyPI, or Maven, or a failed result when its dependency graph is unavailable. The dashboard retains recent attempts so users can reopen their results.
+An SPDX result marks dependencies as direct or transitive when GitHub supplies that relationship and includes its declared-license metadata. Source-manifest fallback results are marked partial because requirements can be unpinned and most manifests do not contain a fully resolved transitive graph; unpinned versions display as `unspecified`. A scan fails only when neither GitHub's dependency graph nor supported source manifests can provide an inventory. The dashboard retains recent attempts so users can reopen their results.
 
 Each producer independently declares **all eight packages** in its own `watchlist.packages` list:
 

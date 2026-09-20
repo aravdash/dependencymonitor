@@ -12,31 +12,30 @@ import org.junit.jupiter.api.Test;
 
 class RepositoryIngestionListenerTest {
     private final RepositoryMessageCodec codec = new RepositoryMessageCodec(new ObjectMapper());
-    private final GithubSbomClient client = mock(GithubSbomClient.class);
-    private final SpdxInventoryParser parser = mock(SpdxInventoryParser.class);
+    private final RepositoryDependencyDiscoverer discoverer = mock(RepositoryDependencyDiscoverer.class);
     private final RepositoryMessagePublisher publisher = mock(RepositoryMessagePublisher.class);
-    private final RepositoryIngestionListener listener = new RepositoryIngestionListener(codec, client, parser, publisher);
+    private final RepositoryIngestionListener listener = new RepositoryIngestionListener(codec, discoverer, publisher);
 
     @Test void publishesACompleteInventory() {
         var request = request();
-        var document = new ObjectMapper().createObjectNode();
         var dependency = new DiscoveredDependency("lodash", "npm", "4.17.21", "pkg:npm/lodash@4.17.21", true, "MIT");
-        when(client.fetch(request)).thenReturn(document);
-        when(parser.parse(document)).thenReturn(new SpdxInventoryParser.Inventory(List.of(dependency), 0, 1));
+        var inventory = new SpdxInventoryParser.Inventory(List.of(dependency), 0, 1);
+        when(discoverer.discover(request)).thenReturn(new RepositoryDependencyDiscoverer.Discovery(
+                InventoryStatus.COMPLETE, inventory, "1 dependency discovered"));
         listener.ingest(codec.write(request));
         verify(publisher).publishInventory(argThat(event -> event.status() == InventoryStatus.COMPLETE
                 && event.dependencies().equals(List.of(dependency)) && event.requestId().equals(request.requestId())));
     }
     @Test void convertsDiscoveryFailuresIntoAVisibleFailedResult() {
         var request = request();
-        when(client.fetch(request)).thenThrow(new GithubApiException("Repository or dependency graph was not found", 404));
+        when(discoverer.discover(request)).thenThrow(new GithubApiException("Repository source was not found", 404));
         listener.ingest(codec.write(request));
         verify(publisher).publishInventory(argThat(event -> event.status() == InventoryStatus.FAILED
                 && event.message().contains("not found") && event.dependencies().isEmpty()));
     }
     @Test void letsKafkaRetryWhenPublishingTheResultFails() {
         var request = request();
-        when(client.fetch(request)).thenThrow(new GithubApiException("Cannot reach GitHub", 0));
+        when(discoverer.discover(request)).thenThrow(new GithubApiException("Cannot reach GitHub", 0));
         doThrow(new IllegalStateException("Kafka unavailable")).when(publisher).publishInventory(any());
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> listener.ingest(codec.write(request)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Kafka unavailable");

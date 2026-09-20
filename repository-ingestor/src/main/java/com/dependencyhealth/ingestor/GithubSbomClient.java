@@ -44,7 +44,7 @@ public class GithubSbomClient {
         URI reportUri = requiredReportUri(generated.body(), request);
         for (int poll = 1; poll <= properties.reportMaxPolls(); poll++) {
             Response report = send(reportUri, githubHeaders(), 3);
-            if (report.status() == 202) {
+            if (report.status() == 201 || report.status() == 202) {
                 pause(properties.reportPollInterval());
                 continue;
             }

@@ -35,7 +35,7 @@ class GithubSbomClientTest {
         HttpClient http = mock(HttpClient.class);
         when(http.send(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<java.io.InputStream>>any()))
                 .thenReturn(response(201, "{\"sbom_url\":\"https://api.github.test/repos/acme/app/dependency-graph/sbom/fetch-report/report-id\"}", Map.of()))
-                .thenReturn(response(202, "", Map.of()))
+                .thenReturn(response(201, "", Map.of()))
                 .thenReturn(response(302, "", Map.of("location", List.of("https://downloads.github.test/report.json"))))
                 .thenReturn(response(200, "{\"sbom\":{\"packages\":[],\"relationships\":[]}}", Map.of()));
 
