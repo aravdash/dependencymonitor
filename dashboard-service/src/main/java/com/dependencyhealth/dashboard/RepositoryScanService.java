@@ -6,6 +6,7 @@ import com.dependencyhealth.contract.repository.RepositoryScanRequest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -13,6 +14,7 @@ public class RepositoryScanService {
     private final RepositoryScanRepository repository;
     private final RepositoryMessagePublisher publisher;
     private final Clock clock;
+    @Autowired
     public RepositoryScanService(RepositoryScanRepository repository, RepositoryMessagePublisher publisher) {
         this(repository, publisher, Clock.systemUTC());
     }
