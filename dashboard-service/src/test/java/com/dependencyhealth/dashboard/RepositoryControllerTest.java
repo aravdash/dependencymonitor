@@ -22,11 +22,12 @@ class RepositoryControllerTest {
     private static final String REQUEST_ID = "123e4567-e89b-12d3-a456-426614174000";
     private final RepositoryScanService service = mock(RepositoryScanService.class);
     private final RepositoryScanRepository repository = mock(RepositoryScanRepository.class);
+    private final EventRepository events = mock(EventRepository.class);
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new RepositoryController(service, repository)).build();
+        mvc = MockMvcBuilders.standaloneSetup(new RepositoryController(service, repository, events)).build();
     }
 
     @Test
@@ -66,6 +67,16 @@ class RepositoryControllerTest {
     void missingScanReturnsNotFoundBeforeDependencyLookup() throws Exception {
         when(repository.find(REQUEST_ID)).thenReturn(Optional.empty());
         mvc.perform(get("/repositories/{id}/dependencies", REQUEST_ID)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returnsOnlyInsightsCorrelatedToTheRepositoryRequest() throws Exception {
+        when(repository.find(REQUEST_ID)).thenReturn(Optional.of(scan("partial")));
+        when(events.repositoryEvents(REQUEST_ID, 200, 0))
+                .thenReturn(new PageResponse<>(List.of(), 200, 0, 0));
+        mvc.perform(get("/repositories/{id}/events", REQUEST_ID)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0));
+        verify(events).repositoryEvents(REQUEST_ID, 200, 0);
     }
 
     private RepositoryScanView scan(String status) {

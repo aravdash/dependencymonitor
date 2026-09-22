@@ -67,20 +67,8 @@ public class GithubScanScheduler {
             }
             try {
                 ActivitySnapshot snapshot = repositoryCache.computeIfAbsent(pkg.repository(), repo -> client.fetch(repo, now));
-                ActivityClassifier.Assessment assessment = classifier.classify(snapshot, now);
-                Map<String, Object> detail = new LinkedHashMap<>();
-                detail.put("repository", pkg.repository());
-                detail.put("repositoryUrl", "https://github.com/" + pkg.repository());
-                detail.put("findingType", assessment.findingType());
-                detail.put("lastCommit", snapshot.lastCommit() == null ? null : snapshot.lastCommit().toString());
-                detail.put("recentCommits", snapshot.recentCommits());
-                detail.put("baselineCommits", snapshot.baselineCommits());
-                detail.put("recentWindowDays", properties.recentWindowDays());
-                detail.put("baselineWindowDays", properties.baselineWindowDays());
-                detail.put("historyComplete", snapshot.historyComplete());
-                detail.put("inactiveMonths", properties.inactiveMonths());
-                publisher.publish(new DependencyEvent(UUID.randomUUID().toString(), "github-activity", pkg.name(),
-                        pkg.ecosystem(), assessment.severity(), assessment.summary(), detail, now));
+                ActivityClassifier.Assessment assessment = publishAssessment(
+                        pkg.name(), pkg.ecosystem(), pkg.repository(), snapshot, now, Map.of());
                 failures.remove(key);
                 log.info("Published {} activity finding for {}:{} ({})", assessment.severity(), pkg.ecosystem(),
                         pkg.name(), assessment.findingType());
@@ -104,6 +92,31 @@ public class GithubScanScheduler {
                 }
             }
         }
+    }
+
+    void scanRepository(String displayName, String ecosystem, String repository, Map<String, Object> context) {
+        Instant now = clock.instant();
+        ActivitySnapshot snapshot = client.fetch(repository, now);
+        publishAssessment(displayName, ecosystem, repository, snapshot, now, context);
+    }
+
+    private ActivityClassifier.Assessment publishAssessment(String displayName, String ecosystem, String repository,
+            ActivitySnapshot snapshot, Instant now, Map<String, Object> context) {
+        ActivityClassifier.Assessment assessment = classifier.classify(snapshot, now);
+        Map<String, Object> detail = new LinkedHashMap<>(context);
+        detail.put("repository", repository);
+        detail.put("repositoryUrl", "https://github.com/" + repository);
+        detail.put("findingType", assessment.findingType());
+        detail.put("lastCommit", snapshot.lastCommit() == null ? null : snapshot.lastCommit().toString());
+        detail.put("recentCommits", snapshot.recentCommits());
+        detail.put("baselineCommits", snapshot.baselineCommits());
+        detail.put("recentWindowDays", properties.recentWindowDays());
+        detail.put("baselineWindowDays", properties.baselineWindowDays());
+        detail.put("historyComplete", snapshot.historyComplete());
+        detail.put("inactiveMonths", properties.inactiveMonths());
+        publisher.publish(new DependencyEvent(UUID.randomUUID().toString(), "github-activity", displayName,
+                ecosystem, assessment.severity(), assessment.summary(), detail, now));
+        return assessment;
     }
 
     private record Failure(long delayMs, Instant retryAt) {

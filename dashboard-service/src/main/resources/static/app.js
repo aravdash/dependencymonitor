@@ -10,6 +10,7 @@ let historyLoading = false;
 let repositoryScan = null;
 let repositoryPoll = null;
 let dependencyOffset = 0;
+let repositoryInsightsLoading = false;
 const dependencyPageSize = 100;
 
 function node(tag, value, className) {
@@ -68,7 +69,10 @@ function showRepositoryScan(scan) {
   byId('repository-message').textContent = scan.message;
   const finished = ['complete', 'partial', 'failed'].includes(scan.status);
   byId('repository-result').hidden = !finished || scan.status === 'failed';
-  if (finished && scan.status !== 'failed') loadDependencies();
+  if (finished && scan.status !== 'failed') {
+    loadDependencies();
+    loadRepositoryInsights();
+  }
   if (finished && repositoryPoll) { clearInterval(repositoryPoll); repositoryPoll = null; }
 }
 
@@ -110,6 +114,52 @@ async function loadDependencies() {
     byId('repository-error').textContent = error.message;
     byId('repository-error').hidden = false;
   }
+}
+
+async function loadRepositoryInsights() {
+  if (!repositoryScan || repositoryInsightsLoading || repositoryScan.status === 'failed') return;
+  repositoryInsightsLoading = true;
+  try {
+    const page = await request(`/repositories/${encodeURIComponent(repositoryScan.requestId)}/events`,
+      {limit: 200, offset: 0});
+    const container = byId('repository-insights');
+    container.replaceChildren();
+    const latest = new Map();
+    for (const event of page.items) {
+      const key = `${event.ecosystem}\u0000${event.packageName}\u0000${event.source}`;
+      if (!latest.has(key)) latest.set(key, event);
+    }
+    const grouped = new Map();
+    for (const event of latest.values()) {
+      const key = `${event.ecosystem}\u0000${event.packageName}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(event);
+    }
+    if (!grouped.size) {
+      container.append(node('p', 'Analysis is in progress. Scanner findings will appear here automatically.', 'empty'));
+    }
+    for (const events of grouped.values()) {
+      const first = events[0];
+      const card = node('article', undefined, 'package');
+      const heading = node('div', undefined, 'package-title');
+      heading.append(node('strong', first.packageName), node('span', first.ecosystem, 'ecosystem'));
+      card.append(heading);
+      events.sort((a, b) => a.source.localeCompare(b.source));
+      for (const event of events) {
+        const finding = node('div', undefined, 'finding');
+        const meta = node('div', undefined, 'finding-meta');
+        meta.append(node('span', event.source), badge(event.severity));
+        finding.append(meta, node('p', event.summary));
+        finding.title = timestamp(event.timestamp);
+        card.append(finding);
+      }
+      container.append(card);
+    }
+    byId('repository-insight-count').textContent = page.total
+      ? `${page.total} findings · latest per scanner shown` : 'Waiting for scanners…';
+  } catch (_) {
+    byId('repository-insight-count').textContent = 'Insights temporarily unavailable';
+  } finally { repositoryInsightsLoading = false; }
 }
 
 async function loadRecentRepositories() {
@@ -197,6 +247,7 @@ async function refresh() {
       renderRecent(events);
       byId('refresh-status').textContent = `Updated ${new Date().toLocaleTimeString()}`;
       byId('error').hidden = true;
+      if (repositoryScan && ['complete', 'partial'].includes(repositoryScan.status)) loadRepositoryInsights();
     }
   } catch (error) {
     byId('error').textContent = `${error.message} Retrying automatically in 10 seconds.`;

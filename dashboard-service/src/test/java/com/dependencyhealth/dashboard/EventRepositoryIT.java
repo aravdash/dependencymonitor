@@ -54,7 +54,7 @@ class EventRepositoryIT {
 
     @Test
     void flywayCreatesPostgresJsonbAndTimeZoneAwareSchema() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         Map<String, String> types = jdbc.getJdbcTemplate().query("""
                 SELECT column_name, data_type FROM information_schema.columns

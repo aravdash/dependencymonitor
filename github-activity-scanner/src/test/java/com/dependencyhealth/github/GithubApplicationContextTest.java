@@ -12,7 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = GithubActivityScannerApplication.class, properties = {
         "scanner.github.initial-delay-ms=3600000",
-        "spring.kafka.admin.auto-create=false"
+        "spring.kafka.admin.auto-create=false",
+        "spring.kafka.listener.auto-startup=false"
 })
 class GithubApplicationContextTest {
     @Autowired private ApplicationContext context;

@@ -1,5 +1,6 @@
 package com.dependencyhealth.dashboard;
 
+import com.dependencyhealth.contract.DependencyEvent;
 import java.util.Map;
 import java.util.Locale;
 import java.util.UUID;
@@ -19,8 +20,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class RepositoryController {
     private final RepositoryScanService service;
     private final RepositoryScanRepository repository;
-    public RepositoryController(RepositoryScanService service, RepositoryScanRepository repository) {
-        this.service = service; this.repository = repository;
+    private final EventRepository events;
+    public RepositoryController(RepositoryScanService service, RepositoryScanRepository repository,
+            EventRepository events) {
+        this.service = service; this.repository = repository; this.events = events;
     }
     @PostMapping
     public ResponseEntity<RepositoryScanView> submit(@RequestBody Map<String, Object> body) {
@@ -52,6 +55,13 @@ public class RepositoryController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ecosystem must be npm, pypi, or maven");
         return repository.dependencies(requestId, normalized, limit, offset);
     }
+    @GetMapping("/{requestId}/events")
+    public PageResponse<DependencyEvent> events(@PathVariable String requestId,
+            @RequestParam(defaultValue = "200") int limit, @RequestParam(defaultValue = "0") int offset) {
+        validateUuid(requestId); validateEventPage(limit, offset);
+        if (repository.find(requestId).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return events.repositoryEvents(requestId, limit, offset);
+    }
     private void validateUuid(String value) {
         try { UUID.fromString(value); } catch (RuntimeException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestId must be a UUID");
@@ -60,5 +70,10 @@ public class RepositoryController {
     private void validatePage(int limit, int offset) {
         if (limit < 1 || limit > 500 || offset < 0 || offset > 1_000_000)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be 1 to 500 and offset must be non-negative");
+    }
+    private void validateEventPage(int limit, int offset) {
+        if (limit < 1 || limit > 200 || offset < 0 || offset > 1_000_000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "limit must be 1 to 200 and offset must be non-negative");
     }
 }

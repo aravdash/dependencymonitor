@@ -50,10 +50,12 @@ public class ConsumerKafkaConfiguration {
 
     @Bean public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> factory, DefaultErrorHandler errorHandler,
-            @Value("${spring.kafka.listener.concurrency:1}") int concurrency) {
+            @Value("${spring.kafka.listener.concurrency:1}") int concurrency,
+            @Value("${spring.kafka.listener.auto-startup:true}") boolean autoStartup) {
         var container = new ConcurrentKafkaListenerContainerFactory<String, String>();
         container.setConsumerFactory(factory);
         container.setConcurrency(concurrency);
+        container.setAutoStartup(autoStartup);
         container.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         container.setCommonErrorHandler(errorHandler);
         return container;

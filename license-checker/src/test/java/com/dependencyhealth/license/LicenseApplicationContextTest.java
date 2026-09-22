@@ -11,7 +11,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 
 @SpringBootTest(classes = LicenseCheckerApplication.class, properties = {
-        "scanner.initial-delay=1h", "spring.kafka.admin.auto-create=false"
+        "scanner.initial-delay=1h", "spring.kafka.admin.auto-create=false",
+        "spring.kafka.listener.auto-startup=false"
 })
 class LicenseApplicationContextTest {
     @Autowired ApplicationContext context;

@@ -60,6 +60,16 @@ public class EventRepository {
         return events(name, ecosystem, limit, offset);
     }
 
+    public PageResponse<DependencyEvent> repositoryEvents(String requestId, int limit, int offset) {
+        MapSqlParameterSource parameters = pageParameters(limit, offset).addValue("requestId", requestId);
+        String where = " WHERE detail->>'repositoryRequestId' = :requestId";
+        List<DependencyEvent> items = jdbc.query("SELECT " + COLUMNS + " FROM dependency_event" + where
+                + " ORDER BY event_timestamp DESC, event_id DESC LIMIT :limit OFFSET :offset",
+                parameters, this::readEvent);
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM dependency_event" + where, parameters, Long.class);
+        return new PageResponse<>(items, limit, offset, total == null ? 0 : total);
+    }
+
     private PageResponse<DependencyEvent> events(String name, String ecosystem, int limit, int offset) {
         MapSqlParameterSource parameters = pageParameters(limit, offset);
         List<String> filters = new ArrayList<>();

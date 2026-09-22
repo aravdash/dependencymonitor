@@ -67,6 +67,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f4f7f9; paddi
 #repository-result { margin-top: 20px; }
 .recent-repositories { margin-top: 20px; }
 .recent-repositories h3, #repository-result h3 { font-size: 14px; margin: 0 0 9px; }
+.repository-insights-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-top: 34px; }
+.repository-insights-heading h3, .repository-insights-heading p { margin-bottom: 4px; }
+.repository-insights { margin-top: 14px; }
 .repository-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .repository-list-item { display: flex; gap: 10px; align-items: center; padding: 7px 9px; }
 .repository-list-item .status-pill { font-size: 8px; }

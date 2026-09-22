@@ -33,6 +33,8 @@
         <div class="section-heading"><h3>Discovered dependencies</h3><span id="dependency-count" class="muted"></span></div>
         <div class="table-wrap"><table><thead><tr><th>Package</th><th>Ecosystem</th><th>Version</th><th>Relationship</th><th>Declared license</th></tr></thead><tbody id="repository-dependencies"></tbody></table></div>
         <div class="pagination"><button id="dependency-previous" type="button" disabled>Previous</button><span id="dependency-page-status"></span><button id="dependency-next" type="button" disabled>Next</button></div>
+        <div class="repository-insights-heading"><div><h3>Health insights</h3><p class="muted">Activity, vulnerability, and license findings produced independently through Kafka.</p></div><span id="repository-insight-count" class="muted">Analysis starting…</span></div>
+        <div id="repository-insights" class="packages repository-insights"><p class="empty">Waiting for scanner findings…</p></div>
       </div>
       <div class="recent-repositories"><h3>Recent repository scans</h3><div id="recent-repositories" class="repository-list"><span class="muted">No repository scans yet.</span></div></div>
     </section>

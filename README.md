@@ -13,6 +13,9 @@ flowchart LR
   R --> GitHub
   R --> INV[Kafka: repository-inventory]
   INV --> D
+  INV --> G
+  INV --> O
+  INV --> L
   G --> K[Kafka: dependency-events]
   O --> K
   L --> K
@@ -136,7 +139,9 @@ GitHub's unauthenticated allowance is small relative to an eight-repository, one
 
 Repository discovery supports public GitHub repositories and extracts npm, PyPI, and Maven packages. It first requests GitHub's SPDX dependency report. If the dependency graph is unavailable or the anonymous API quota is exhausted, it downloads a bounded public source archive and reads `package.json`, `package-lock.json`, `requirements*.txt`, and `pom.xml` files. Neither path executes repository code. A `GITHUB_TOKEN` is optional for public repositories and required for private-repository SBOM access or a larger API quota. The token must be able to read that repository's contents.
 
-Discovery is event driven. `dashboard-service` writes a queued request to PostgreSQL and publishes it to `repository-scan-requests`; `repository-ingestor` retrieves the asynchronous GitHub report and publishes a result to `repository-inventory`; `dashboard-service` consumes and stores that result. The existing scheduled watchlists continue to produce the health findings below the repository inventory. Automatically sending every discovered package to the vulnerability, license, and activity scanners is a separate next step, so the initial repository result is an inventory rather than a combined risk report.
+Discovery and analysis are event driven. `dashboard-service` writes a queued request to PostgreSQL and publishes it to `repository-scan-requests`; `repository-ingestor` retrieves the GitHub report or parses supported manifests and publishes the result to `repository-inventory`. The dashboard and all three scanners consume that inventory in separate Kafka consumer groups. The scanners publish correlated findings to `dependency-events`, and the repository result displays them in its **Health insights** section as they arrive. The scheduled YAML watchlists continue to run independently.
+
+OSV produces exact vulnerability results when the discovered version is pinned. An unpinned dependency produces a warning that exact analysis is unavailable instead of implying that the package is safe. For unpinned npm and PyPI dependencies, the license scanner checks the registry's latest release and labels that assumption; unpinned Maven dependencies are reported as requiring an exact version. GitHub activity is assessed for the submitted repository itself because dependency manifests do not reliably identify every package's upstream source repository.
 
 An SPDX result marks dependencies as direct or transitive when GitHub supplies that relationship and includes its declared-license metadata. Source-manifest fallback results are marked partial because requirements can be unpinned and most manifests do not contain a fully resolved transitive graph; unpinned versions display as `unspecified`. A scan fails only when neither GitHub's dependency graph nor supported source manifests can provide an inventory. The dashboard retains recent attempts so users can reopen their results.
 
@@ -176,6 +181,7 @@ curl -X POST "http://localhost:8080/repositories" -H "Content-Type: application/
 curl "http://localhost:8080/repositories?limit=20&offset=0"
 curl "http://localhost:8080/repositories/{requestId}"
 curl "http://localhost:8080/repositories/{requestId}/dependencies?ecosystem=maven&limit=100&offset=0"
+curl "http://localhost:8080/repositories/{requestId}/events?limit=100&offset=0"
 curl "http://localhost:8080/packages?limit=50&offset=0"
 curl "http://localhost:8080/packages/lodash/events?ecosystem=npm&limit=20"
 curl "http://localhost:8080/packages/com.fasterxml.jackson.core:jackson-databind/events?ecosystem=maven"

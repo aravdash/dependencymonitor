@@ -1,8 +1,10 @@
 package com.dependencyhealth.license;
 
 import com.dependencyhealth.contract.DependencyEvent;
+import com.dependencyhealth.contract.Severity;
 import com.dependencyhealth.contract.kafka.EventPublisher;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -29,18 +31,48 @@ public class LicenseScanJob {
     public void scan() {
         for (var pkg : watchlist.packages()) {
             try {
-                LicenseMetadata metadata = client.fetch(pkg);
-                var decision = policy.evaluate(metadata.licenses());
-                Map<String, Object> detail = Map.of("version", metadata.version(),
-                        "licenses", metadata.licenses().stream().map(s -> s.length() > 4000 ? s.substring(0, 4000) + " [truncated]" : s).toList(),
-                        "matchedRules", decision.matches(), "metadataUrl", metadata.metadataUrl(),
-                        "provenance", metadata.provenance(), "policy", "Flag any disallowed term, including OR alternatives and WITH exceptions, for review");
-                publisher.publish(new DependencyEvent(UUID.randomUUID().toString(), "license-check", pkg.name(), pkg.ecosystem(),
-                        decision.severity(), decision.summary(), detail, Instant.now()));
-                log.info("License scan complete for {}:{}: {}", pkg.ecosystem(), pkg.name(), decision.summary());
+                scanPackage(pkg, Map.of());
             } catch (RuntimeException ex) {
                 log.warn("License scan failed for {}:{}; will retry on next poll: {}", pkg.ecosystem(), pkg.name(), ex.getMessage());
             }
         }
+    }
+
+    void scanPackage(WatchlistProperties.WatchedPackage pkg, Map<String, Object> context) {
+        boolean repositoryScan = Boolean.TRUE.equals(context.get("repositoryScan"));
+        boolean unpinned = repositoryScan && "unspecified".equals(context.get("discoveredVersion"));
+        if (unpinned && pkg.ecosystem().equals("maven")) {
+            Map<String, Object> detail = new LinkedHashMap<>(context);
+            detail.put("scanSkipped", true);
+            detail.put("reason", "Maven metadata requires an exact artifact version");
+            publish(pkg, Severity.WARNING,
+                    "Dependency version is not pinned; exact license analysis is unavailable", detail);
+            return;
+        }
+        LicenseMetadata metadata = client.fetch(pkg);
+        var decision = policy.evaluate(metadata.licenses());
+        Map<String, Object> detail = new LinkedHashMap<>(context);
+        detail.put("version", metadata.version());
+        detail.put("licenses", metadata.licenses().stream()
+                .map(value -> value.length() > 4000 ? value.substring(0, 4000) + " [truncated]" : value).toList());
+        detail.put("matchedRules", decision.matches());
+        detail.put("metadataUrl", metadata.metadataUrl());
+        detail.put("provenance", metadata.provenance());
+        detail.put("policy", "Flag any disallowed term, including OR alternatives and WITH exceptions, for review");
+        Severity severity = decision.severity();
+        String summary = decision.summary();
+        if (unpinned) {
+            detail.put("versionAssumption", "Latest registry release used because the repository did not pin a version");
+            if (severity == Severity.INFO) severity = Severity.WARNING;
+            summary = summary + "; checked latest release because repository version is unpinned";
+        }
+        publish(pkg, severity, summary, detail);
+        log.info("License scan complete for {}:{}: {}", pkg.ecosystem(), pkg.name(), summary);
+    }
+
+    private void publish(WatchlistProperties.WatchedPackage pkg, Severity severity, String summary,
+            Map<String, Object> detail) {
+        publisher.publish(new DependencyEvent(UUID.randomUUID().toString(), "license-check", pkg.name(),
+                pkg.ecosystem(), severity, summary, detail, Instant.now()));
     }
 }
