@@ -124,8 +124,19 @@ async function loadRepositoryInsights() {
       {limit: 200, offset: 0});
     const container = byId('repository-insights');
     container.replaceChildren();
+    const activityContainer = byId('repository-activity');
+    activityContainer.replaceChildren();
+    const activity = page.items.find(event => event.source === 'github-activity' && event.ecosystem === 'github');
+    activityContainer.hidden = !activity;
+    if (activity) {
+      const meta = node('div', undefined, 'finding-meta');
+      meta.append(node('strong', 'Repository activity'), badge(activity.severity));
+      activityContainer.append(meta, node('p', activity.summary));
+      activityContainer.title = timestamp(activity.timestamp);
+    }
     const latest = new Map();
     for (const event of page.items) {
+      if (event.ecosystem === 'github') continue;
       const key = `${event.ecosystem}\u0000${event.packageName}\u0000${event.source}`;
       if (!latest.has(key)) latest.set(key, event);
     }
@@ -155,8 +166,9 @@ async function loadRepositoryInsights() {
       }
       container.append(card);
     }
-    byId('repository-insight-count').textContent = page.total
-      ? `${page.total} findings · latest per scanner shown` : 'Waiting for scanners…';
+    const dependencyFindingCount = page.items.filter(event => event.ecosystem !== 'github').length;
+    byId('repository-insight-count').textContent = grouped.size
+      ? `${grouped.size} dependencies analyzed · ${dependencyFindingCount} findings` : 'Waiting for scanners…';
   } catch (_) {
     byId('repository-insight-count').textContent = 'Insights temporarily unavailable';
   } finally { repositoryInsightsLoading = false; }

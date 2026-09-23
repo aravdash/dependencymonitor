@@ -34,28 +34,34 @@
         <div class="table-wrap"><table><thead><tr><th>Package</th><th>Ecosystem</th><th>Version</th><th>Relationship</th><th>Declared license</th></tr></thead><tbody id="repository-dependencies"></tbody></table></div>
         <div class="pagination"><button id="dependency-previous" type="button" disabled>Previous</button><span id="dependency-page-status"></span><button id="dependency-next" type="button" disabled>Next</button></div>
         <div class="repository-insights-heading"><div><h3>Health insights</h3><p class="muted">Activity, vulnerability, and license findings produced independently through Kafka.</p></div><span id="repository-insight-count" class="muted">Analysis starting…</span></div>
+        <div id="repository-activity" class="repository-activity" hidden></div>
         <div id="repository-insights" class="packages repository-insights"><p class="empty">Waiting for scanner findings…</p></div>
       </div>
       <div class="recent-repositories"><h3>Recent repository scans</h3><div id="recent-repositories" class="repository-list"><span class="muted">No repository scans yet.</span></div></div>
     </section>
-    <section class="toolbar" aria-label="Filters">
-      <label for="ecosystem">Ecosystem</label>
-      <select id="ecosystem"><option value="">All ecosystems</option><option value="npm">npm</option>
-        <option value="pypi">PyPI</option><option value="maven">Maven</option></select>
-      <button id="refresh" type="button">Refresh</button>
-      <span id="package-count" class="muted"></span>
-    </section>
-    <p id="error" class="error" role="alert" hidden></p>
-    <section aria-labelledby="packages-title">
-      <div class="section-heading"><h2 id="packages-title">Latest observations</h2><span class="muted">Updated every 10 seconds</span></div>
-      <p class="muted hint">Latest event from each scanner. Findings are observations at a point in time; history remains available.</p>
-      <div id="packages" class="packages"><p class="empty">Waiting for the first scanner events…</p></div>
-      <div class="pagination"><button id="previous" type="button" disabled>Previous</button><span id="page-status"></span><button id="next" type="button" disabled>Next</button></div>
-    </section>
-    <section aria-labelledby="recent-title">
-      <div class="section-heading"><h2 id="recent-title">Recent events</h2><span class="muted">Latest 30</span></div>
-      <div class="table-wrap"><table><thead><tr><th>Time</th><th>Package</th><th>Scanner</th><th>Severity</th><th>Finding</th></tr></thead><tbody id="recent"></tbody></table></div>
-    </section>
+    <details class="all-observations">
+      <summary><strong>All monitored packages</strong><span>Includes the built-in demo watchlists and findings from every repository scan</span></summary>
+      <div class="all-observations-content">
+        <section class="toolbar" aria-label="Filters">
+          <label for="ecosystem">Ecosystem</label>
+          <select id="ecosystem"><option value="">All ecosystems</option><option value="npm">npm</option>
+            <option value="pypi">PyPI</option><option value="maven">Maven</option></select>
+          <button id="refresh" type="button">Refresh</button>
+          <span id="package-count" class="muted"></span>
+        </section>
+        <p id="error" class="error" role="alert" hidden></p>
+        <section aria-labelledby="packages-title">
+          <div class="section-heading"><h2 id="packages-title">Latest observations across all sources</h2><span class="muted">Updated every 10 seconds</span></div>
+          <p class="muted hint">This global feed includes configured demo watchlists and repository findings. Repository-specific results remain above.</p>
+          <div id="packages" class="packages"><p class="empty">Waiting for the first scanner events…</p></div>
+          <div class="pagination"><button id="previous" type="button" disabled>Previous</button><span id="page-status"></span><button id="next" type="button" disabled>Next</button></div>
+        </section>
+        <section aria-labelledby="recent-title">
+          <div class="section-heading"><h2 id="recent-title">Recent events across all sources</h2><span class="muted">Latest 30</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Package</th><th>Scanner</th><th>Severity</th><th>Finding</th></tr></thead><tbody id="recent"></tbody></table></div>
+        </section>
+      </div>
+    </details>
     <footer>Every event is stored with its original timestamp. Select a package to explore its history.</footer>
   </main>
   <dialog id="history-dialog">

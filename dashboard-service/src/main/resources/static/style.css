@@ -70,9 +70,17 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f4f7f9; paddi
 .repository-insights-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-top: 34px; }
 .repository-insights-heading h3, .repository-insights-heading p { margin-bottom: 4px; }
 .repository-insights { margin-top: 14px; }
+.repository-activity { margin-top: 14px; padding: 14px 16px; border: 1px solid #dce5e9; border-radius: 9px; background: #f8fbfa; }
+.repository-activity p { margin: 7px 0 0; font-size: 12px; line-height: 1.6; }
 .repository-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .repository-list-item { display: flex; gap: 10px; align-items: center; padding: 7px 9px; }
 .repository-list-item .status-pill { font-size: 8px; }
+.all-observations { margin-top: 24px; border: 1px solid #dce5e9; border-radius: 12px; background: #fff; }
+.all-observations > summary { padding: 18px 22px; color: #244354; }
+.all-observations > summary strong { margin-right: 12px; font-size: 14px; }
+.all-observations > summary span { color: #71818a; font-size: 12px; }
+.all-observations[open] > summary { border-bottom: 1px solid #e7edef; }
+.all-observations-content { padding: 0 22px 24px; }
 @media(max-width: 950px) {
   .packages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   header { display: block; }
